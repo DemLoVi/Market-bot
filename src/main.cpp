@@ -12,6 +12,10 @@
 #define MOT3_B 6
 #define RMOT_A 7
 #define RMOT_B 8
+
+#define BUMPER_BUT 9
+#define SCREEN_TOP_BUT A0
+#define SCREEN_DOWN_BUT A1
 /*==========DEFINES==========*/
 
 
@@ -24,12 +28,14 @@ SoftwareSerial BTserial(BL_RX, BL_TX);
 GMotor2<DRIVER2WIRE> mot1(MOT1_A, MOT1_B);
 GMotor2<DRIVER2WIRE> mot2(MOT2_A, MOT2_B);
 GMotor2<DRIVER2WIRE> mot3(MOT3_A, MOT3_B);
-GMotor2<DRIVER2WIRE> ramp_motor(RMOT_A, RMOT_B);
+GMotor2<DRIVER2WIRE> ScreenMotor(RMOT_A, RMOT_B);
 /*==========LIBS==========*/
 
 
 /*==========VARS==========*/
 bool doneParsing, startParsing;
+bool screenState, screenOp; // 0 - closed, 1 - open; 0 - stand by, 1 - in move
+bool impact; 
 int16_t dataX, dataY;
 String string_convert;
 /*==========VARS==========*/
@@ -39,20 +45,62 @@ String string_convert;
 bool parsing();
 void StopMotors();
 void SetMotorsXY(byte, byte, byte);
+void SetScreen(bool);
 /*==========FUNC-DECL==========*/
 
 
 void setup() {
   // Serial.begin(9600);
   BTserial.begin(9600);
+
+  pinMode(BUMPER_BUT, INPUT_PULLUP);
+  pinMode(SCREEN_TOP_BUT, INPUT_PULLUP);
+  pinMode(SCREEN_DOWN_BUT, INPUT_PULLUP);
+
+  while(!digitalRead(SCREEN_DOWN_BUT)) { // closing screen
+    ScreenMotor.setSmoothSpeed(-255);
+  }
 }
 
 void loop() {
-  if (parsing()) SetMotorsXY(dataX, dataY, 0); // if done parsing set motors
+  mot1.tick();
+  mot2.tick();
+  mot3.tick();
+  ScreenMotor.tick();
+
+  if (parsing()) SetMotorsXY(dataX, dataY, 0);            // if done parsing set motors
+
+  if (screenState == 1 && !digitalRead(SCREEN_TOP_BUT)) { // if screen open but not confirmed
+    if (!screenOp) {                                      // if not operating
+      impact = 1;                                         // imact detected
+      SetScreen(0);                                       // closing screen
+    }
+  }
 }
 
 
 /*==========FUNC-DEF==========*/
+void SetScreen(bool pos) {
+  if (pos) {                            // if opening
+    if(!digitalRead(SCREEN_TOP_BUT)) {  // untill top position
+      ScreenMotor.setSmoothSpeed(255);  // smooth full speed
+    } else {                            // if top position
+      ScreenMotor.stop();               // stop motor
+      screenState = 1;                  // full open
+      screenOp = 1;                     // done
+    }
+  } else {                              // if closing
+    if(!digitalRead(SCREEN_DOWN_BUT)) { // untill down position
+      ScreenMotor.setSmoothSpeed(-255); // smooth full reversed speed
+    } else {                            // if down position
+      ScreenMotor.stop();               // stop motor
+      screenState = 0;                  // full closed
+      screenOp = 1;                     // done
+    }
+  }
+  screenOp = 0;                         // operating
+}
+
 void SetMotorsXY(byte x, byte y, byte R) { // set speeds to motors
 byte W1 = -0.5*x - sqrt(3)/2*y + R;        // convertation for qiwi drive
 byte W2 = -0.5*x + sqrt(3)/2*y + R;
