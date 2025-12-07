@@ -34,15 +34,18 @@ GMotor2<DRIVER2WIRE> ScreenMotor(RMOT_A, RMOT_B);
 
 /*==========VARS==========*/
 bool doneParsing, startParsing;
-bool screenState, screenOp; // 0 - closed, 1 - open; 0 - stand by, 1 - in move
-bool impact; 
-int16_t dataX, dataY;
+bool screenState, screenOp;     // 0 - closed, 1 - open; 0 - stand by, 1 - in move
+uint8_t sysLastState;           // 0 - ok, 1 - impact
+int16_t dataX, dataY, dataR;
+bool dataScreen;
 String string_convert;
 /*==========VARS==========*/
 
 
 /*==========FUNC-DECL==========*/
-bool parsing();
+bool Parsing();
+uint8_t SysCheck();
+void ImpactSequence();
 void StopMotors();
 void SetMotorsXY(byte, byte, byte);
 void SetScreen(bool);
@@ -68,18 +71,41 @@ void loop() {
   mot3.tick();
   ScreenMotor.tick();
 
-  if (parsing()) SetMotorsXY(dataX, dataY, 0);            // if done parsing set motors
-
-  if (screenState == 1 && !digitalRead(SCREEN_TOP_BUT)) { // if screen open but not confirmed
-    if (!screenOp) {                                      // if not operating
-      impact = 1;                                         // imact detected
-      SetScreen(0);                                       // closing screen
+  switch (sysLastState = SysCheck()) { // system check
+  case 0: // all good
+    if (Parsing()) {                                        // if done Parsing
+      SetMotorsXY(dataX, dataY, dataR);                     // set motors
+      if (screenState != dataScreen) SetScreen(dataScreen); // if screen pos need to change
     }
+    break;
+
+  case 1: // impact
+    ImpactSequence();
+    break;
   }
 }
 
 
 /*==========FUNC-DEF==========*/
+uint8_t SysCheck() {
+  if (sysLastState == 1) { // if impact already detected
+    return 1;              // loop
+  }
+
+  // screen check
+  if (screenState == 1 && !digitalRead(SCREEN_TOP_BUT)) { // if screen open but not confirmed
+    if (!screenOp) {                                      // if not operating
+      return 1;                                           // impact
+    }
+  }
+  return 0;
+}
+
+void ImpactSequence() {
+  StopMotors();
+  SetScreen(0);
+}
+
 void SetScreen(bool pos) {
   if (pos) {                            // if opening
     if(!digitalRead(SCREEN_TOP_BUT)) {  // untill top position
@@ -101,14 +127,14 @@ void SetScreen(bool pos) {
   screenOp = 0;                         // operating
 }
 
-void SetMotorsXY(byte x, byte y, byte R) { // set speeds to motors
-byte W1 = -0.5*x - sqrt(3)/2*y + R;        // convertation for qiwi drive
-byte W2 = -0.5*x + sqrt(3)/2*y + R;
-byte W3 = x + R;
+void SetMotorsXY(byte x, byte y, byte R) {   // set speeds to motors
+  byte W1 = -0.5*x - sqrt(3)/2*y + R;        // convertation for qiwi drive
+  byte W2 = -0.5*x + sqrt(3)/2*y + R;
+  byte W3 = x + R;
 
-mot1.setSpeed(W1);                         // set motors
-mot2.setSpeed(W2);
-mot3.setSpeed(W3);
+  mot1.setSpeed(W1);                         // set motors
+  mot2.setSpeed(W2);
+  mot3.setSpeed(W3);
 }
 
 void StopMotors() { // full stop platform
@@ -117,10 +143,10 @@ void StopMotors() { // full stop platform
   mot3.stop();
 }
 
-bool parsing() {
+bool Parsing() {
   if (BTserial.available() > 0) {        // if data avaible
     char incomingChar = BTserial.read(); // read incoming data
-    if (startParsing) {                  // start parsing
+    if (startParsing) {                  // start Parsing
       if (incomingChar == ' ') {         // if we done reciving X data
         dataX = string_convert.toInt();  // save X data
         string_convert = "";             // clear buffer
@@ -128,15 +154,15 @@ bool parsing() {
       else if (incomingChar == ';') {    // if we done reciving Y data
         dataY = string_convert.toInt();  // save Y data
         string_convert = "";             // clear buffer
-        startParsing = false;            // stop parsing
-        return true;                     // raturn done parsing
+        startParsing = false;            // stop Parsing
+        return true;                     // raturn done Parsing
       } else {
         string_convert += incomingChar;  // add incoming symbol to buffer
       }
     }
-    if (incomingChar == '$') {           // start parsing
+    if (incomingChar == '$') {           // start Parsing
       startParsing = true;              
     }
   }
-  return false;                          // return parsing not done
+  return false;                          // return Parsing not done
 }
