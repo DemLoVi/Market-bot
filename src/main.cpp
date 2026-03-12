@@ -2,18 +2,18 @@
 
 
 /*==========DEFINES==========*/
-#define BL_RX 10
-#define BL_TX 11
-#define MOT1_A 1
-#define MOT1_B 2
-#define MOT2_A 3
-#define MOT2_B 4
-#define MOT3_A 5
+#define BL_RX 12
+#define BL_TX 13
+#define MOT1_A 3
+#define MOT1_B 5
+#define MOT2_A 10
+#define MOT2_B 11
+#define MOT3_A 9
 #define MOT3_B 6
 #define RMOT_A 7
 #define RMOT_B 8
 
-#define BUMPER_BUT 9
+#define BUMPER_BUT 2
 #define SCREEN_TOP_BUT A0
 #define SCREEN_DOWN_BUT A1
 /*==========DEFINES==========*/
@@ -36,7 +36,7 @@ GMotor2<DRIVER2WIRE> ScreenMotor(RMOT_A, RMOT_B);
 bool doneParsing, startParsing;
 bool screenState, screenOp;     // 0 - closed, 1 - open; 0 - stand by, 1 - in move
 uint8_t sysLastState;           // 0 - ok, 1 - impact
-int16_t dataX, dataY, dataR;
+int16_t dataX = 0, dataY = 0, dataR = 0;
 bool dataScreen;
 String string_convert;
 /*==========VARS==========*/
